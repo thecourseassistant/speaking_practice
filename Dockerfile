@@ -1,9 +1,10 @@
 # Dockerfile
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies including cmake
 RUN apt-get update && apt-get install -y \
     build-essential \
+    cmake \
     git \
     ffmpeg \
     libsndfile1 \
@@ -23,7 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy your app and model
 COPY . .
 
-# Ensure model exists
+# Verify model exists
 RUN ls -lh /app/gglm.tiny.bin
 
 # Expose port
