@@ -4,13 +4,12 @@ import uuid
 import subprocess
 import traceback
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify  # ✅ Must be at top level
 from flask_cors import CORS
 
-# --- Early app startup log ---
 print("🚀 Initializing Flask app...")
 
-# --- Deferred import and model loading with maximum visibility ---
+# Deferred model loading
 model = None
 
 
@@ -18,7 +17,6 @@ def load_whisper_model():
     global model
     from whispercpp import Whisper
 
-    # Load using the official name
     MODEL_PATH = Path("model/ggml-tiny.en.bin").resolve()
     print(f"🔍 Model path: {MODEL_PATH}")
     print(f"📄 File exists: {MODEL_PATH.exists()}")
@@ -26,26 +24,23 @@ def load_whisper_model():
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
 
-    print("🧠 About to load Whisper model (this may take a few seconds)...")
-    try:
-        model = Whisper(str(MODEL_PATH))
-        print("✅ Whisper model loaded successfully!")
-    except Exception as e:
-        print("💥 Exception during Whisper model load:")
-        traceback.print_exc()
-        raise
+    print("🧠 Loading Whisper model using from_pretrained...")
+    model = Whisper.from_pretrained(str(MODEL_PATH))  # ✅ CORRECT WAY
+    print("✅ Whisper model loaded successfully!")
 
 
-# --- Initialize model at startup ---
+# Load at startup
 try:
     load_whisper_model()
 except Exception as e:
-    print("💥 FATAL ERROR: Failed to load Whisper model")
-    print(f"Error type: {type(e).__name__}")
-    print(f"Error message: {e}")
-    print("Traceback:")
+    print("💥 FATAL: Failed to initialize Whisper model")
     traceback.print_exc()
     sys.exit(1)
+
+# Flask app
+app = Flask(__name__)
+CORS(app)
+
 
 # --- Flask app ---
 app = Flask(__name__)
@@ -54,11 +49,12 @@ CORS(app)
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe_audio():
-    if 'audio' not in request.files:
+    if 'audio' not in request.files:  # ✅ Pylance now sees `request`
+        # ✅ and `jsonify`
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files['audio']
-    uid = str(uuid.uuid4())
+    uid = str(uuid.uuid4())  # ✅ `uuid` is imported at top
     temp_dir = Path("temp")
     temp_dir.mkdir(exist_ok=True)
     webm_path = temp_dir / f"{uid}.webm"
