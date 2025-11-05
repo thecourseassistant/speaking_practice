@@ -6,30 +6,24 @@ from pathlib import Path
 from flask import Flask, request, jsonify
 
 import tempfile
-from flask import Flask, request, jsonify
 
-MODEL_PATH = "/app/gglm.tiny.bin"
-
-# Debug: list files in /app
-print("📁 Files in /app:")
-for f in os.listdir("/app"):
-    print(f"  - {f}")
-
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
 
 app = Flask(__name__)
 
 # Paths (Render clones repo to /app)
 WHISPER_CPP_DIR = "/app/whisper.cpp"
-MODEL_PATH = "/app/git.bin"
+MODEL_PATH = "/app/gglm.tiny.bin"
 
 # Validate that model and binary exist
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
-if not os.path.exists(f"{WHISPER_CPP_DIR}/main"):
-    raise FileNotFoundError(
-        f"whisper.cpp 'main' not built at {WHISPER_CPP_DIR}/main")
+
+
+def ensure_model_ready():
+    """Validate paths at runtime (not import time)."""
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
+    if not os.path.exists(f"{WHISPER_CPP_DIR}/main"):
+        raise FileNotFoundError(
+            f"whisper.cpp 'main' not built at {WHISPER_CPP_DIR}/main")
 
 
 @app.route("/transcribe", methods=["POST"])
