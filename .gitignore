@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Audio temp files
+*.wav
+*.mp3
+
+# OS
+.DS_Store
+
+# Render cache folder
+.cache/
+
+# VS Code
+.vscode/
+        
+       
+

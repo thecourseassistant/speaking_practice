@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: stt-api
+    runtime: python
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --timeout 120 --workers 1
+    envVars:
+      - key: FIREBASE_CALLBACK_URL
+        sync: false
+      - key: WHISPER_DEVICE
+        value: "cpu"
+      - key: WHISPER_MODEL
+        value: "tiny.en"
