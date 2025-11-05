@@ -40,7 +40,11 @@ def load_whisper_model():
 try:
     load_whisper_model()
 except Exception as e:
-    print("❌ FATAL: Failed to initialize Whisper model. Exiting.")
+    print("💥 FATAL ERROR: Failed to load Whisper model")
+    print(f"Error type: {type(e).__name__}")
+    print(f"Error message: {e}")
+    print("Traceback:")
+    traceback.print_exc()
     sys.exit(1)
 
 # --- Flask app ---
