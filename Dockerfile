@@ -14,8 +14,8 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Download the official Whisper tiny.en model
-RUN mkdir -p model/tiny.en && \
-    curl -L -o model/tiny.en/model.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+RUN mkdir -p model && \
+    curl -L -o model/ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
 
 # Install Python dependencies (build whispercpp from source)
 COPY requirements.txt .

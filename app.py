@@ -18,7 +18,8 @@ def load_whisper_model():
     global model
     from whispercpp import Whisper
 
-    MODEL_PATH = Path("model/tiny.en/model.bin").resolve()
+    # Load using the official name
+    MODEL_PATH = Path("model/ggml-tiny.en.bin").resolve()
     print(f"🔍 Model path: {MODEL_PATH}")
     print(f"📄 File exists: {MODEL_PATH.exists()}")
 
