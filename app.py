@@ -6,14 +6,14 @@ import traceback
 from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from whispercpp import Whisper
+import Whisper
 
 print("🚀 Initializing Flask app...")
 
 # Load Whisper model by name (auto-downloads if needed)
 try:
     print("🧠 Loading Whisper model 'tiny.en' (auto-download if missing)...")
-    model = Whisper("model/ggml-tiny.en.bin")
+    model = Whisper.load_model("model/ggml-tiny.en.bin")
     print("✅ Whisper model loaded successfully!")
 except Exception as e:
     print("💥 FATAL: Failed to initialize Whisper model")
