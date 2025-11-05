@@ -8,11 +8,21 @@ from flask import Flask, request, jsonify
 import tempfile
 from flask import Flask, request, jsonify
 
+MODEL_PATH = "/app/gglm.tiny.bin"
+
+# Debug: list files in /app
+print("📁 Files in /app:")
+for f in os.listdir("/app"):
+    print(f"  - {f}")
+
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
+
 app = Flask(__name__)
 
 # Paths (Render clones repo to /app)
 WHISPER_CPP_DIR = "/app/whisper.cpp"
-MODEL_PATH = "/app/gglm.tiny.bin"
+MODEL_PATH = "/app/git.bin"
 
 # Validate that model and binary exist
 if not os.path.exists(MODEL_PATH):
