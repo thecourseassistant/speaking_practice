@@ -1,7 +1,7 @@
-# ===== Build Stage =====
+# ===== BUILD STAGE =====
 FROM python:3.10-slim AS builder
 
-# Install build dependencies for whispercpp (C++ compilation)
+# Install build tools + curl (to download model)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -13,15 +13,19 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Install Python deps (build whispercpp from source for compatibility)
+# Download the official Whisper tiny.en model
+RUN mkdir -p model/tiny.en && \
+    curl -L -o model/tiny.en/model.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+
+# Install Python dependencies (build whispercpp from source)
 COPY requirements.txt .
 RUN pip install --user --no-cache-dir --no-binary=whispercpp -r requirements.txt
 
 
-# ===== Final Stage =====
+# ===== FINAL STAGE =====
 FROM python:3.10-slim
 
-# Install runtime deps
+# Install only runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ffmpeg \
@@ -33,17 +37,19 @@ RUN useradd --create-home --shell /bin/bash app
 USER app
 WORKDIR /home/app
 
-# Copy Python deps
+# Copy model from builder
+COPY --from=builder --chown=app:app /app/model ./model
+
+# Copy Python dependencies
 COPY --from=builder --chown=app:app /root/.local /home/app/.local
+
+# Add user-local bin to PATH
 ENV PATH=/home/app/.local/bin:$PATH
 
-# Download official Whisper tiny.en model → save as model/tiny.en/model.bin
-RUN mkdir -p model/tiny.en && \
-    curl -L -o model/tiny.en/model.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
-
-# Copy app code (in case you have other files)
+# Copy application code
 COPY --chown=app:app . .
 
+# Expose port
 EXPOSE 5000
 
 # Run with Gunicorn
