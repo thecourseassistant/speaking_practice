@@ -4,57 +4,34 @@ import uuid
 import subprocess
 import traceback
 from pathlib import Path
-from flask import Flask, request, jsonify  # ✅ Must be at top level
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+from whispercpp import Whisper
 
 print("🚀 Initializing Flask app...")
 
-# Deferred model loading
-model = None
-
-
-def load_whisper_model():
-    global model
-    from whispercpp import Whisper
-
-    MODEL_PATH = Path("model/ggml-tiny.en.bin").resolve()
-    print(f"🔍 Model path: {MODEL_PATH}")
-    print(f"📄 File exists: {MODEL_PATH.exists()}")
-
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
-
-    print("🧠 Loading Whisper model using from_pretrained...")
-    model = Whisper.from_pretrained(str(MODEL_PATH))  # ✅ CORRECT WAY
-    print("✅ Whisper model loaded successfully!")
-
-
-# Load at startup
+# Load Whisper model by name (auto-downloads if needed)
 try:
-    load_whisper_model()
+    print("🧠 Loading Whisper model 'tiny.en' (auto-download if missing)...")
+    model = Whisper.from_pretrained("tiny.en")
+    print("✅ Whisper model loaded successfully!")
 except Exception as e:
     print("💥 FATAL: Failed to initialize Whisper model")
     traceback.print_exc()
     sys.exit(1)
 
-# Flask app
-app = Flask(__name__)
-CORS(app)
-
-
-# --- Flask app ---
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe_audio():
-    if 'audio' not in request.files:  # ✅ Pylance now sees `request`
-        # ✅ and `jsonify`
+    if 'audio' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files['audio']
-    uid = str(uuid.uuid4())  # ✅ `uuid` is imported at top
+    uid = str(uuid.uuid4())
     temp_dir = Path("temp")
     temp_dir.mkdir(exist_ok=True)
     webm_path = temp_dir / f"{uid}.webm"
@@ -93,7 +70,7 @@ def transcribe_audio():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        # Cleanup
+        # Cleanup temporary files
         for path in [webm_path, wav_path]:
             if path.exists():
                 try:
@@ -102,6 +79,6 @@ def transcribe_audio():
                     print(f"⚠️ Cleanup warning: {cleanup_err}")
 
 
-# --- For local testing only ---
+# For local development only
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
