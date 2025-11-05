@@ -1,6 +1,4 @@
 flask
 flask-cors
 whispercpp
-pydub
-ffmpeg-python
 gunicorn
