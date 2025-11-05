@@ -1,45 +1,52 @@
 import os
+import sys
 import uuid
 import subprocess
+import traceback
 from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from whispercpp import Whisper
 
-# === Initialize Flask app ===
+# --- Early app startup log ---
+print("🚀 Initializing Flask app...")
+
+# --- Deferred import and model loading with maximum visibility ---
+model = None
+
+
+def load_whisper_model():
+    global model
+    from whispercpp import Whisper
+
+    MODEL_PATH = Path("model/tiny.en/model.bin").resolve()
+    print(f"🔍 Model path: {MODEL_PATH}")
+    print(f"📄 File exists: {MODEL_PATH.exists()}")
+
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+
+    print("🧠 About to load Whisper model (this may take a few seconds)...")
+    try:
+        model = Whisper(str(MODEL_PATH))
+        print("✅ Whisper model loaded successfully!")
+    except Exception as e:
+        print("💥 Exception during Whisper model load:")
+        traceback.print_exc()
+        raise
+
+
+# --- Initialize model at startup ---
+try:
+    load_whisper_model()
+except Exception as e:
+    print("❌ FATAL: Failed to initialize Whisper model. Exiting.")
+    sys.exit(1)
+
+# --- Flask app ---
 app = Flask(__name__)
 CORS(app)
 
-# === Load Whisper model at startup (with explicit path and error handling) ===
-MODEL_DIR = Path("model/tiny.en")
-MODEL_PATH = MODEL_DIR / "model.bin"
 
-# Resolve to absolute path for clarity
-ABS_MODEL_PATH = MODEL_PATH.resolve()
-
-print(f"🔍 Attempting to load Whisper model from: {ABS_MODEL_PATH}")
-print(f"📂 Model directory exists? {MODEL_DIR.exists()}")
-print(f"📄 Model file exists? {MODEL_PATH.exists()}")
-
-if not MODEL_PATH.exists():
-    error_msg = (
-        f"❌ Whisper model file NOT FOUND at: {ABS_MODEL_PATH}\n"
-        f"Make sure the file 'model.bin' is in the 'model/tiny.en/' folder "
-        f"and is committed to your Git repository."
-    )
-    print(error_msg)
-    raise FileNotFoundError(error_msg)
-
-try:
-    print("🧠 Loading Whisper model...")
-    model = Whisper(str(MODEL_PATH))
-    print("✅ Whisper model loaded successfully!")
-except Exception as e:
-    print(f"💥 Failed to initialize Whisper model: {e}")
-    raise
-
-
-# === Flask route ===
 @app.route("/transcribe", methods=["POST"])
 def transcribe_audio():
     if 'audio' not in request.files:
@@ -56,7 +63,7 @@ def transcribe_audio():
         # Save uploaded WebM
         audio_file.save(webm_path)
 
-        # Convert WebM to WAV (mono, 16kHz) using ffmpeg
+        # Convert WebM to WAV using ffmpeg
         ffmpeg_cmd = [
             "ffmpeg",
             "-i", str(webm_path),
@@ -64,16 +71,17 @@ def transcribe_audio():
             "-ac", "1",
             "-f", "wav",
             str(wav_path),
-            "-y",  # overwrite if exists
+            "-y",
             "-loglevel", "error"
         ]
         result = subprocess.run(ffmpeg_cmd, capture_output=True)
         if result.returncode != 0:
-            stderr_msg = result.stderr.decode() if result.stderr else "Unknown FFmpeg error"
-            raise Exception(f"FFmpeg conversion failed: {stderr_msg}")
+            stderr_msg = result.stderr.decode().strip() if result.stderr else "Unknown error"
+            raise Exception(f"FFmpeg failed: {stderr_msg}")
 
         # Transcribe
-        print(f"🗣️ Transcribing {wav_path}...")
+        print(
+            f"🗣️ Transcribing audio (length: {wav_path.stat().st_size} bytes)...")
         transcription = model.transcribe(str(wav_path))
         text = transcription.get("text", "").strip()
 
@@ -84,15 +92,15 @@ def transcribe_audio():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        # Cleanup temporary files
+        # Cleanup
         for path in [webm_path, wav_path]:
             if path.exists():
                 try:
                     path.unlink()
                 except Exception as cleanup_err:
-                    print(f"⚠️ Failed to delete {path}: {cleanup_err}")
+                    print(f"⚠️ Cleanup warning: {cleanup_err}")
 
 
-# === Entry point for local dev (not used in Docker/Gunicorn) ===
+# --- For local testing only ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
