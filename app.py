@@ -4,11 +4,13 @@ import uuid
 import subprocess
 from pathlib import Path
 from flask import Flask, request, jsonify
-
 import tempfile
+from flask import Flask
+from flask_cors import CORS
 
 
 app = Flask(__name__)
+CORS(app)
 
 # Paths (Render clones repo to /app)
 WHISPER_CPP_DIR = "/app/whisper.cpp"
