@@ -2,27 +2,24 @@ import os
 import sys
 import uuid
 import subprocess
-import traceback
 from pathlib import Path
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-import Whisper
 
-print("🚀 Initializing Flask app...")
+import tempfile
+from flask import Flask, request, jsonify
 
-# Load Whisper model by name (auto-downloads if needed)
-try:
-    print("🧠 Loading Whisper model 'tiny.en' (auto-download if missing)...")
-    model = Whisper.load_model("model/ggml-tiny.en.bin")
-    print("✅ Whisper model loaded successfully!")
-except Exception as e:
-    print("💥 FATAL: Failed to initialize Whisper model")
-    traceback.print_exc()
-    sys.exit(1)
-
-# Initialize Flask app
 app = Flask(__name__)
-CORS(app)
+
+# Paths (Render clones repo to /app)
+WHISPER_CPP_DIR = "/app/whisper.cpp"
+MODEL_PATH = "/app/gglm.tiny.bin"
+
+# Validate that model and binary exist
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
+if not os.path.exists(f"{WHISPER_CPP_DIR}/main"):
+    raise FileNotFoundError(
+        f"whisper.cpp 'main' not built at {WHISPER_CPP_DIR}/main")
 
 
 @app.route("/transcribe", methods=["POST"])
@@ -36,6 +33,7 @@ def transcribe_audio():
     temp_dir.mkdir(exist_ok=True)
     webm_path = temp_dir / f"{uid}.webm"
     wav_path = temp_dir / f"{uid}.wav"
+    txt_output = temp_dir / f"{uid}.txt"  # whisper.cpp will create this
 
     try:
         # Save uploaded WebM
@@ -57,11 +55,37 @@ def transcribe_audio():
             stderr_msg = result.stderr.decode().strip() if result.stderr else "Unknown error"
             raise Exception(f"FFmpeg failed: {stderr_msg}")
 
-        # Transcribe
-        print(
-            f"🗣️ Transcribing audio (length: {wav_path.stat().st_size} bytes)...")
-        transcription = model.transcribe(str(wav_path))
-        text = transcription.get("text", "").strip()
+        # ✅ Run whisper.cpp via subprocess
+        whisper_cmd = [
+            f"{WHISPER_CPP_DIR}/main",
+            "-m", MODEL_PATH,
+            "-f", str(wav_path),
+            "-otxt",
+            "--output-file", str(temp_dir / uid),  # outputs to {uid}.txt
+            "-t", "4",
+            "--print-colors", "0",
+            "--print-progress", "0"
+        ]
+
+        print(f"🗣️ Running whisper.cpp on {wav_path}...")
+        whisper_result = subprocess.run(
+            whisper_cmd,
+            cwd=WHISPER_CPP_DIR,
+            capture_output=True,
+            text=True
+        )
+
+        if whisper_result.returncode != 0:
+            err = whisper_result.stderr or whisper_result.stdout
+            raise Exception(f"whisper.cpp failed: {err}")
+
+        # Read transcription
+        txt_file = temp_dir / f"{uid}.txt"
+        if txt_file.exists():
+            with open(txt_file, "r") as f:
+                text = f.read().strip()
+        else:
+            text = ""
 
         return jsonify({"text": text})
 
@@ -70,8 +94,8 @@ def transcribe_audio():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        # Cleanup temporary files
-        for path in [webm_path, wav_path]:
+        # Cleanup all temp files
+        for path in [webm_path, wav_path, temp_dir / f"{uid}.txt"]:
             if path.exists():
                 try:
                     path.unlink()
