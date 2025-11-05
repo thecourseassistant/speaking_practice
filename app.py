@@ -13,7 +13,7 @@ print("🚀 Initializing Flask app...")
 # Load Whisper model by name (auto-downloads if needed)
 try:
     print("🧠 Loading Whisper model 'tiny.en' (auto-download if missing)...")
-    model = Whisper.from_pretrained("tiny.en")
+    model = Whisper("model/ggml-tiny.en.bin")
     print("✅ Whisper model loaded successfully!")
 except Exception as e:
     print("💥 FATAL: Failed to initialize Whisper model")
