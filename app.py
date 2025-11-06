@@ -2,10 +2,10 @@ import os
 import sys
 import uuid
 import subprocess
+import shutil  # ← ADD THIS
 from pathlib import Path
 from flask import Flask, request, jsonify
 import tempfile
-from flask import Flask
 from flask_cors import CORS
 
 
@@ -35,11 +35,10 @@ def transcribe_audio():
 
     audio_file = request.files['audio']
     uid = str(uuid.uuid4())
-    temp_dir = Path("temp")
-    temp_dir.mkdir(exist_ok=True)
-    webm_path = temp_dir / f"{uid}.webm"
-    wav_path = temp_dir / f"{uid}.wav"
-    txt_output = temp_dir / f"{uid}.txt"  # whisper.cpp will create this
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        webm_path = Path(tmp_dir) / "audio.webm"
+        wav_path = Path(tmp_dir) / "audio.wav"
+    txt_output = tmp_dir / f"{uid}.txt"  # whisper.cpp will create this
 
     try:
         # Save uploaded WebM
@@ -67,7 +66,7 @@ def transcribe_audio():
             "-m", MODEL_PATH,
             "-f", str(wav_path),
             "-otxt",
-            "--output-file", str(temp_dir / uid),  # outputs to {uid}.txt
+            "--output-file", str(tmp_dir / uid),  # outputs to {uid}.txt
             "-t", "4",
             "--print-colors", "0",
             "--print-progress", "0"
@@ -86,7 +85,7 @@ def transcribe_audio():
             raise Exception(f"whisper.cpp failed: {err}")
 
         # Read transcription
-        txt_file = temp_dir / f"{uid}.txt"
+        txt_file = tmp_dir / f"{uid}.txt"
         if txt_file.exists():
             with open(txt_file, "r") as f:
                 text = f.read().strip()
@@ -101,7 +100,7 @@ def transcribe_audio():
 
     finally:
         # Cleanup all temp files
-        for path in [webm_path, wav_path, temp_dir / f"{uid}.txt"]:
+        for path in [webm_path, wav_path, tmp_dir / f"{uid}.txt"]:
             if path.exists():
                 try:
                     path.unlink()
@@ -109,6 +108,5 @@ def transcribe_audio():
                     print(f"⚠️ Cleanup warning: {cleanup_err}")
 
 
-# For local development only
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

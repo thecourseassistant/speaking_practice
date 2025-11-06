@@ -15,7 +15,11 @@ WORKDIR /app
 RUN git clone https://github.com/ggerganov/whisper.cpp
 WORKDIR /app/whisper.cpp
 RUN make -j$(nproc)
+# After building whisper.cpp
+RUN chmod +x /app/whisper.cpp/main
 
+# Ensure ffmpeg is installed
+RUN apt-get update && apt-get install -y ffmpeg
 # Install Python dependencies
 WORKDIR /app
 COPY requirements.txt .
